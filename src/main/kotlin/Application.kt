@@ -31,6 +31,5 @@ fun main() {
                 rssReaderService.pollRssUpdates(reSearchPosts, posts)
             }
         }
-
     }
 }

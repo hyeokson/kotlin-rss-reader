@@ -1,7 +1,7 @@
 package service
 
 import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.supervisorScope
 import model.Post
 import org.w3c.dom.Document
 import org.w3c.dom.Element
@@ -9,7 +9,7 @@ import util.rssReader
 import java.text.SimpleDateFormat
 import java.time.ZoneId
 import java.time.ZonedDateTime
-import java.util.*
+import java.util.Locale
 
 class RssReaderService() {
     suspend fun getXml(): List<Document> {
@@ -19,16 +19,19 @@ class RssReaderService() {
 
         var documents: List<Document> = emptyList()
 
-        coroutineScope {
-            val kurlyXml = async {
-                rssReader(kurly)
-            }
-            val hmgXml = async {
-                rssReader(hmg)
-            }
-            val banksaladXml = async {
-                rssReader(banksalad)
-            }
+        supervisorScope {
+            val kurlyXml =
+                async {
+                    rssReader(kurly)
+                }
+            val hmgXml =
+                async {
+                    rssReader(hmg)
+                }
+            val banksaladXml =
+                async {
+                    rssReader(banksalad)
+                }
 
             documents = listOf(kurlyXml.await(), hmgXml.await(), banksaladXml.await())
         }
@@ -38,7 +41,7 @@ class RssReaderService() {
 
     fun pollRssUpdates(
         reSearchPosts: MutableList<Post>,
-        posts: MutableList<Post>
+        posts: MutableList<Post>,
     ): MutableList<Post> {
         val oldPostsLinks = posts.map { it.link }
         val newPosts = reSearchPosts.filter { reSearchPost -> !oldPostsLinks.contains(reSearchPost.link) }
@@ -62,7 +65,10 @@ class RssReaderService() {
             .toMutableList()
     }
 
-    fun sort(keyword: String?, posts: List<Post>): List<Post> {
+    fun sort(
+        keyword: String?,
+        posts: List<Post>,
+    ): List<Post> {
         if (keyword.isNullOrBlank()) {
             return posts.sortedByDescending { it.pubDate }
                 .take(10)
@@ -86,7 +92,6 @@ private fun convertXmlToPost(document: Document): MutableList<Post> {
         val formatter = SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss z", Locale.ENGLISH)
         val parsed = formatter.parse(pubDate.textContent)
         val localDateTime = ZonedDateTime.ofInstant(parsed.toInstant(), ZoneId.systemDefault()).toLocalDateTime()
-
 
         val post = Post(title.textContent, description.textContent, link.textContent, localDateTime)
         list.add(post)
